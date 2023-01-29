@@ -74,7 +74,25 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
         throw reply.badRequest(Message.USER_FAKE_ID);
       }
 
-      return fastify.db.users.delete(request.params.id);
+      await fastify.db.users.delete(request.params.id);
+
+      const users = await fastify.db.users.findMany();
+      const usersSubscribedToDeleted = users.filter(
+        (user) => user.subscribedToUserIds.includes(request.params.id)
+      );
+
+      usersSubscribedToDeleted.forEach(async (user) => {
+        user.subscribedToUserIds.splice(
+          user.subscribedToUserIds.indexOf(request.params.id),
+          1
+        );
+
+        await fastify.db.users.change(user.id, {
+          subscribedToUserIds: [...user.subscribedToUserIds]
+        });
+      });
+
+      return user; 
     }
   );
 

@@ -4,7 +4,8 @@ import { createProfileBodySchema, changeProfileBodySchema } from './schema';
 import type { ProfileEntity } from '../../utils/DB/entities/DBProfiles';
 
 enum Message {
-  PROFILE_NOT_FOUND = 'Profile not found'
+  PROFILE_NOT_FOUND = 'Profile not found',
+  PROFILE_FAKE_ID = 'Fake id param'
 }
 
 const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
@@ -76,13 +77,16 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
       },
     },
     async function (request, reply): Promise<ProfileEntity> {
-      const editedProfile = await fastify.db.profiles.change(request.params.id, request.body);
+      const profile = await fastify.db.profiles.findOne({
+        key: 'id',
+        equals: request.params.id
+      });
 
-      if (!editedProfile) {
-        throw reply.notFound(Message.PROFILE_NOT_FOUND);
+      if (!profile) {
+        throw reply.badRequest(Message.PROFILE_FAKE_ID);
       }
       
-      return new Promise<ProfileEntity>(() => {});
+      return fastify.db.profiles.change(request.params.id, request.body);
     }
   );
 };
