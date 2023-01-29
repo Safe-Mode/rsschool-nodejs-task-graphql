@@ -8,7 +8,9 @@ import {
 import type { UserEntity } from '../../utils/DB/entities/DBUsers';
 
 enum Message {
-  USER_NOT_FOUND = 'User not found'
+  USER_NOT_FOUND = 'User not found',
+  USER_FAKE_ID = 'Fake id param',
+  USER_NOT_FOLLOWED = 'User not followed'
 }
 
 const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
@@ -69,7 +71,7 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
       });
       
       if (!user) {
-        throw reply.notFound(Message.USER_NOT_FOUND);
+        throw reply.badRequest(Message.USER_FAKE_ID);
       }
 
       return fastify.db.users.delete(request.params.id);
@@ -87,24 +89,24 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
     async function (request, reply): Promise<UserEntity> {
       const user = await fastify.db.users.findOne({
         key: 'id',
-        equals: request.params.id
+        equals: request.body.userId
       });
       
       if (!user) {
-        throw reply.notFound(Message.USER_NOT_FOUND);
+        throw reply.badRequest(Message.USER_FAKE_ID);
       }
 
       const subscribeToUser = await fastify.db.users.findOne({
         key: 'id',
-        equals: request.body.userId
+        equals: request.params.id
       });
 
       if (!subscribeToUser) {
-        throw reply.notFound('User to subscribe not found');
+        throw reply.badRequest(Message.USER_FAKE_ID);
       }
 
-      await fastify.db.users.change(request.params.id, {
-        subscribedToUserIds: [request.body.userId]
+      await fastify.db.users.change(request.body.userId, {
+        subscribedToUserIds: [...user.subscribedToUserIds, request.params.id]
       })
 
       return subscribeToUser;
@@ -122,27 +124,32 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
     async function (request, reply): Promise<UserEntity> {
       const user = await fastify.db.users.findOne({
         key: 'id',
-        equals: request.params.id
+        equals: request.body.userId
       });
 
       if (!user) {
-        throw reply.notFound(Message.USER_NOT_FOUND);
+        throw reply.badRequest(Message.USER_FAKE_ID);
       }
 
       const unsubscribeFromUser = await fastify.db.users.findOne({
         key: 'id',
-        equals: request.body.userId
+        equals: request.params.id
       });
 
       if (!unsubscribeFromUser) {
-        throw reply.notFound('User to unsubscribe not found');
+        throw reply.badRequest(Message.USER_FAKE_ID);
+      }
+
+      if (!user.subscribedToUserIds.includes(unsubscribeFromUser.id)) {
+        throw reply.badRequest(Message.USER_NOT_FOLLOWED);
       }
 
       user.subscribedToUserIds.splice(
-        user.subscribedToUserIds.indexOf(request.body.userId)
+        user.subscribedToUserIds.indexOf(request.params.id),
+        1
       );
 
-      await fastify.db.users.change(request.params.id, {
+      await fastify.db.users.change(request.body.userId, {
         subscribedToUserIds: [...user.subscribedToUserIds]
       })
 
@@ -165,7 +172,7 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
       });
       
       if (!user) {
-        throw reply.notFound(Message.USER_NOT_FOUND);
+        throw reply.badRequest(Message.USER_FAKE_ID);
       }
 
       return fastify.db.users.change(request.params.id, request.body);

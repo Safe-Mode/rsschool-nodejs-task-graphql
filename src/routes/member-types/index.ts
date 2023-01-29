@@ -4,7 +4,8 @@ import { changeMemberTypeBodySchema } from './schema';
 import type { MemberTypeEntity } from '../../utils/DB/entities/DBMemberTypes';
 
 enum Message {
-  MEMBER_TYPE_NOT_FOUND = 'Member type not found'
+  MEMBER_TYPE_NOT_FOUND = 'Member type not found',
+  MEMBER_TYPE_FAKE_ID = 'Fake id param'
 }
 
 const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
@@ -46,12 +47,16 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
       },
     },
     async function (request, reply): Promise<MemberTypeEntity> {
-      const newMemberType = fastify.db.memberTypes.change(request.params.id, request.body);
+      const memberType = await fastify.db.memberTypes.findOne({
+        key: 'id',
+        equals: request.params.id
+      });
 
-      if (!newMemberType) {
-        throw reply.notFound(Message.MEMBER_TYPE_NOT_FOUND);
+      if (!memberType) {
+        throw reply.badRequest(Message.MEMBER_TYPE_FAKE_ID);
       }
-      return newMemberType;
+
+      return fastify.db.memberTypes.change(request.params.id, request.body);
     }
   );
 };
