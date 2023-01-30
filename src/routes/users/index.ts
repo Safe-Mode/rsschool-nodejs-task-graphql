@@ -49,11 +49,7 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
       },
     },
     async function (request, reply): Promise<UserEntity> {
-      return fastify.db.users.create({
-        firstName: request.body.firstName,
-        lastName: request.body.lastName,
-        email: request.body.email
-      });
+      return fastify.db.users.create(request.body);
     }
   );
 
@@ -91,6 +87,22 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
           subscribedToUserIds: [...user.subscribedToUserIds]
         });
       });
+
+      const deletedUserProfile = await fastify.db.profiles.findOne({
+        key: 'userId',
+        equals: request.params.id
+      });
+
+      const deletedUserPosts = await fastify.db.posts.findMany({
+        key: 'userId',
+        equals: request.params.id
+      });
+
+      deletedUserPosts.forEach(async ({ id }) => await fastify.db.posts.delete(id));
+
+      if (deletedUserProfile) {
+        await fastify.db.profiles.delete(deletedUserProfile?.id);
+      }
 
       return user; 
     }
