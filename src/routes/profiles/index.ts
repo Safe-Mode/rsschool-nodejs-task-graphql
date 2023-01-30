@@ -3,12 +3,20 @@ import { idParamSchema } from '../../utils/reusedSchemas';
 import { createProfileBodySchema, changeProfileBodySchema } from './schema';
 import type { ProfileEntity } from '../../utils/DB/entities/DBProfiles';
 
+enum Message {
+  PROFILE_NOT_FOUND = 'Profile not found',
+  PROFILE_FAKE_ID = 'Fake id param',
+  PROFILE_EXISTS = 'User already has a profile'
+}
+
 const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
   fastify
 ): Promise<void> => {
   fastify.get('/', async function (request, reply): Promise<
     ProfileEntity[]
-  > {});
+  > {
+    return fastify.db.profiles.findMany();
+  });
 
   fastify.get(
     '/:id',
@@ -17,7 +25,18 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
         params: idParamSchema,
       },
     },
-    async function (request, reply): Promise<ProfileEntity> {}
+    async function (request, reply): Promise<ProfileEntity> {
+      const profile = await fastify.db.profiles.findOne({
+        key: 'id',
+        equals: request.params.id
+      });
+
+      if (!profile) {
+        throw reply.notFound(Message.PROFILE_NOT_FOUND);
+      }
+
+      return profile;
+    }
   );
 
   fastify.post(
@@ -27,7 +46,27 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
         body: createProfileBodySchema,
       },
     },
-    async function (request, reply): Promise<ProfileEntity> {}
+    async function (request, reply): Promise<ProfileEntity> {
+      const profile = await fastify.db.profiles.findOne({
+        key: 'userId',
+        equals: request.body.userId
+      });
+
+      if (profile) {
+        throw reply.badRequest(Message.PROFILE_EXISTS);
+      }
+
+      const memberType = await fastify.db.profiles.findOne({
+        key: 'id',
+        equals: request.body.memberTypeId
+      });
+
+      if (!memberType) {
+        throw reply.badRequest(Message.PROFILE_FAKE_ID);
+      }
+
+      return fastify.db.profiles.create(request.body);
+    }
   );
 
   fastify.delete(
@@ -37,7 +76,18 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
         params: idParamSchema,
       },
     },
-    async function (request, reply): Promise<ProfileEntity> {}
+    async function (request, reply): Promise<ProfileEntity> {
+      const profile = await fastify.db.profiles.findOne({
+        key: 'id',
+        equals: request.params.id
+      });
+
+      if (!profile) {
+        throw reply.badRequest(Message.PROFILE_NOT_FOUND);
+      }
+
+      return fastify.db.profiles.delete(request.params.id);
+    }
   );
 
   fastify.patch(
@@ -48,7 +98,18 @@ const plugin: FastifyPluginAsyncJsonSchemaToTs = async (
         params: idParamSchema,
       },
     },
-    async function (request, reply): Promise<ProfileEntity> {}
+    async function (request, reply): Promise<ProfileEntity> {
+      const profile = await fastify.db.profiles.findOne({
+        key: 'id',
+        equals: request.params.id
+      });
+
+      if (!profile) {
+        throw reply.badRequest(Message.PROFILE_FAKE_ID);
+      }
+      
+      return fastify.db.profiles.change(request.params.id, request.body);
+    }
   );
 };
 

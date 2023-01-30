@@ -13,6 +13,7 @@
   "scripts": {
     "check-integrity": "node check-integrity.js",
     "test": "npm run build:ts && tsc -p test/tsconfig.json && tap --ts \"test/**/*.test.ts\"",
+    "test:part": "npm run build:ts && tsc -p test/tsconfig.json && tap --ts \"test/routes/users.test.ts\"",
     "start": "npm run build:ts && fastify start -l info dist/app.js",
     "build:ts": "tsc",
     "watch:ts": "tsc -w",
